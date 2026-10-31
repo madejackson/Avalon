@@ -1,0 +1,79 @@
+name: Avalon ROCm image
+
+# Builds the Avalon llama-server container (ROCm, tuned for AMD RDNA3) and
+# pushes it to GHCR as ghcr.io/madejackson/avalon.
+#
+# Runs automatically on every push to main (and tags), and can be triggered
+# manually via Actions -> "Avalon ROCm image" -> Run workflow.
+#
+# The build compiles with ROCm on a plain ubuntu-24.04 runner; no GPU is
+# needed to compile (same approach as upstream's docker.yml). The deploy side
+# (host samOS = kalavallerie.ch) then runs the image with /dev/kfd and
+# /dev/dri passthrough.
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }} # ghcr.io/madejackson/avalon
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
+          sudo docker system prune -af || true
+          df -h /
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=rocm
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: Build and push (ROCm server image)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: runtime
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # All RDNA3 archs baked in (gfx1100 = RX 7900 XT/XTX, gfx1101 =
+          # 7900 GRE/7800 XT, gfx1102 = 7700 XT/7600 XT). Runtime picks the
+          # right kernel automatically.

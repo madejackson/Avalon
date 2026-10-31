@@ -1,8 +1,29 @@
 *.o
 *.a
 .cache/
-# Do not ignore .git directory, otherwise the reported build number will always be 0
-.github/
+# Build artifacts / git internals
+.git
+.gitignore
+build/
+build-*
+*.log
+
+# Upstream noise we don't need in the image build context
+.vs/
+.vscode/
+.DS_Store
+tools/ui/node_modules/
+.cache/
+
+# Our own deployment files (entrypoint is COPYed explicitly)
+docker/avalon-entrypoint.sh
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
 .gitignore
 .vs/
 .vscode/
