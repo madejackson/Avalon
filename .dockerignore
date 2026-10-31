@@ -3,7 +3,6 @@
 .cache/
 # Build artifacts / git internals
 .git
-.gitignore
 build/
 build-*
 *.log
@@ -14,9 +13,6 @@ build-*
 .DS_Store
 tools/ui/node_modules/
 .cache/
-
-# Our own deployment files (entrypoint is COPYed explicitly)
-docker/avalon-entrypoint.sh
 
 # Python
 venv/
